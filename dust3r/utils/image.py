@@ -7,6 +7,8 @@
 import os
 import torch
 import numpy as np
+from PIL import Image
+import cv2
 import PIL.Image
 from PIL.ImageOps import exif_transpose
 import torchvision.transforms as tvf
@@ -69,8 +71,47 @@ def _resize_pil_image(img, long_edge_size):
     new_size = tuple(int(round(x*long_edge_size/S)) for x in img.size)
     return img.resize(new_size, interp)
 
+def undistort_img(rgb, K, D):
+    # recalibrate and undistort the image
+    h, w = rgb.shape[:2]
+    new_K = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(K, D, (w, h), None)
+    map1, map2 = cv2.fisheye.initUndistortRectifyMap(K, D, np.eye(3), new_K, (w, h), cv2.CV_16SC2)
+    undistorted_rgb = cv2.remap(rgb, map1, map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+    return undistorted_rgb
 
-def load_images(folder_or_list, size, square_ok=False, verbose=True):
+def read_rgb_img(infile):
+    rgb = cv2.imread(infile, cv2.IMREAD_COLOR)
+    rgb = cv2.cvtColor(rgb, cv2.COLOR_BGR2RGB)  # Convert to RGB
+    return rgb
+
+def get_intrinsics(cam_data):
+    # get intrinsics from gopro_calibs file
+
+    intrinsics = [
+        cam_data['intrinsics_0'],
+        cam_data['intrinsics_1'],
+        cam_data['intrinsics_2'],
+        cam_data['intrinsics_3'],
+        cam_data['intrinsics_4'],
+        cam_data['intrinsics_5'],
+        cam_data['intrinsics_6'],
+        cam_data['intrinsics_7'],
+    ]
+
+    fx = intrinsics[0]
+    fy = intrinsics[1]
+    cx = intrinsics[2]
+    cy = intrinsics[3]
+
+    K = np.array([[fx, 0, cx],
+                [0, fy, cy],
+                [0, 0, 1]])
+
+    D = np.array(intrinsics[4:])
+
+    return K, D
+
+def load_images(folder_or_list, size, square_ok=False, verbose=True, intrinsic_df=None):
     """ open and convert all images in a list or folder to proper input format for DUSt3R
     """
     if isinstance(folder_or_list, str):
@@ -95,7 +136,15 @@ def load_images(folder_or_list, size, square_ok=False, verbose=True):
     for path in folder_content:
         if not path.lower().endswith(supported_images_extensions):
             continue
-        img = exif_transpose(PIL.Image.open(os.path.join(root, path))).convert('RGB')
+    
+        view = path.split("/")[-2]
+        cam_data = intrinsic_df[intrinsic_df['cam_uid'] == view].iloc[0]
+        K, D = get_intrinsics(cam_data)
+        cv2_rgb = read_rgb_img(path)
+        undistorted_rgb = undistort_img(cv2_rgb, K, D)
+        img = exif_transpose(Image.fromarray(undistorted_rgb))
+
+        # img = exif_transpose(PIL.Image.open(os.path.join(root, path))).convert('RGB')
         W1, H1 = img.size
         if size == 224:
             # resize short side to 224 (then crop)
