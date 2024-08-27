@@ -173,3 +173,30 @@ def load_images(folder_or_list, size, square_ok=False, verbose=True, intrinsic_d
     if verbose:
         print(f' (Found {len(imgs)} images)')
     return imgs
+
+def load_ego_images(img_list, size, square_ok=False):
+    imgs_final = []
+    for img in img_list:
+        print(img)
+        img = exif_transpose(Image.fromarray(img))
+        W1, H1 = img.size
+        if size == 224:
+            # resize short side to 224 (then crop)
+            img = _resize_pil_image(img, round(size * max(W1/H1, H1/W1)))
+        else:
+            # resize long side to 512
+            img = _resize_pil_image(img, size)
+        W, H = img.size
+        cx, cy = W//2, H//2
+        if size == 224:
+            half = min(cx, cy)
+            img = img.crop((cx-half, cy-half, cx+half, cy+half))
+        else:
+            halfw, halfh = ((2*cx)//16)*8, ((2*cy)//16)*8
+            if not (square_ok) and W == H:
+                halfh = 3*halfw/4
+            img = img.crop((cx-halfw, cy-halfh, cx+halfw, cy+halfh))
+        W2, H2 = img.size
+        imgs_final.append(dict(img=ImgNorm(img)[None], true_shape=np.int32(
+            [img.size[::-1]]), idx=len(imgs_final), instance=str(len(imgs_final))))
+    return imgs_final
