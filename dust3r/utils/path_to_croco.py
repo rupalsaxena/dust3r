@@ -12,7 +12,7 @@ import os.path as path
 # CROCO_MODELS_PATH = path.join(CROCO_REPO_PATH, 'models')
 
 # print(CROCO_MODELS_PATH)
-CROCO_MODELS_PATH="/local/home/rsaxena/Documents/Github/Master-Thesis-Project/Experiments/dust3r_experiments/dust3r/croco/models"
+CROCO_MODELS_PATH="/local/home/rsaxena/Documents/Github/Master-Thesis-Project/assets/dust3r/croco/models"
 
 #"/home/rupal/Master-Thesis-Project/Experiments/dust3r_experiments/dust3r/croco/models"
 
@@ -20,7 +20,7 @@ CROCO_MODELS_PATH="/local/home/rsaxena/Documents/Github/Master-Thesis-Project/Ex
 # check the presence of models directory in repo to be sure its cloned
 if path.isdir(CROCO_MODELS_PATH):
     # workaround for sibling import
-    sys.path.insert(0, "/local/home/rsaxena/Documents/Github/Master-Thesis-Project/Experiments/dust3r_experiments/dust3r/croco")
+    sys.path.insert(0, "/local/home/rsaxena/Documents/Github/Master-Thesis-Project/assets/dust3r/croco")
 else:
     raise ImportError(f"croco is not initialized, could not find: {CROCO_MODELS_PATH}.\n "
                       "Did you forget to run 'git submodule update --init --recursive' ?")
