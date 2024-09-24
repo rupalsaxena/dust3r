@@ -88,15 +88,15 @@ def _convert_scene_output_to_glb(outdir, imgs, pts3d, mask, focals, cams2world, 
         mesh = trimesh.Trimesh(**cat_meshes(meshes))
         scene.add_geometry(mesh)
 
-    # # add each camera
-    # for i, pose_c2w in enumerate(cams2world):
-    #     if isinstance(cam_color, list):
-    #         camera_edge_color = cam_color[i]
-    #     else:
-    #         camera_edge_color = cam_color or CAM_COLORS[i % len(CAM_COLORS)]
-    #     add_scene_cam(scene, pose_c2w, camera_edge_color,
-    #                   None if transparent_cams else imgs[i], focals[i],
-    #                   imsize=imgs[i].shape[1::-1], screen_width=cam_size)
+    # add each camera
+    for i, pose_c2w in enumerate(cams2world):
+        if isinstance(cam_color, list):
+            camera_edge_color = cam_color[i]
+        else:
+            camera_edge_color = cam_color or CAM_COLORS[i % len(CAM_COLORS)]
+        add_scene_cam(scene, pose_c2w, camera_edge_color,
+                      None if transparent_cams else imgs[i], focals[i],
+                      imsize=imgs[i].shape[1::-1], screen_width=cam_size)
     
     scene.apply_transform(np.linalg.inv(cams2world[0] @ OPENGL @ rot))
     glb_file = os.path.join(outdir, 'scene.glb')
