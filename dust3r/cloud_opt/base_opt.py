@@ -44,7 +44,7 @@ class BasePCOptimizer (nn.Module):
     def _init_from_views(self, view1, view2, pred1, pred2,
                          dist='l1',
                          conf='log',
-                         min_conf_thr=3,
+                         min_conf_thr=1,
                          base_scale=0.5,
                          allow_pw_adaptors=False,
                          pw_break=20,
@@ -195,6 +195,7 @@ class BasePCOptimizer (nn.Module):
         return scaled_RT
 
     def get_masks(self):
+        print(self.min_conf_thr)
         return [(conf > self.min_conf_thr) for conf in self.im_conf]
 
     def depth_to_pts3d(self):

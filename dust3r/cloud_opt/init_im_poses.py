@@ -21,7 +21,7 @@ from dust3r.cloud_opt.commons import edge_str, i_j_ij, compute_edge_scores
 
 
 @torch.no_grad()
-def init_from_known_poses(self, niter_PnP=10, min_conf_thr=3):
+def init_from_known_poses(self, niter_PnP=10, min_conf_thr=1):
     device = self.device
 
     # indices of known poses

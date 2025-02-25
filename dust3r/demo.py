@@ -6,8 +6,6 @@
 # --------------------------------------------------------
 import argparse
 import math
-import builtins
-import datetime
 import gradio
 import os
 import torch
@@ -16,6 +14,7 @@ import functools
 import trimesh
 import copy
 from scipy.spatial.transform import Rotation
+import open3d as o3d
 
 from dust3r.inference import inference
 from dust3r.image_pairs import make_pairs
@@ -50,19 +49,6 @@ def get_args_parser():
     return parser
 
 
-def set_print_with_timestamp(time_format="%Y-%m-%d %H:%M:%S"):
-    builtin_print = builtins.print
-
-    def print_with_timestamp(*args, **kwargs):
-        now = datetime.datetime.now()
-        formatted_date_time = now.strftime(time_format)
-
-        builtin_print(f'[{formatted_date_time}] ', end='')  # print with time stamp
-        builtin_print(*args, **kwargs)
-
-    builtins.print = print_with_timestamp
-
-
 def _convert_scene_output_to_glb(outdir, imgs, pts3d, mask, focals, cams2world, cam_size=0.05,
                                  cam_color=None, as_pointcloud=False,
                                  transparent_cams=False, silent=False):
@@ -74,10 +60,25 @@ def _convert_scene_output_to_glb(outdir, imgs, pts3d, mask, focals, cams2world, 
 
     scene = trimesh.Scene()
 
+    rot = np.eye(4)
+    rot[:3, :3] = Rotation.from_euler('y', np.deg2rad(180)).as_matrix()
     # full pointcloud
     if as_pointcloud:
         pts = np.concatenate([p[m] for p, m in zip(pts3d, mask)])
         col = np.concatenate([p[m] for p, m in zip(imgs, mask)])
+        # exporting point cloud object 
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(pts.reshape(-1,3))
+        if col.max() > 1.0:
+            col /= 255.0
+
+        # Set the colors
+        pcd.colors = o3d.utility.Vector3dVector(col)
+        # pcd.transform(np.linalg.inv(cams2world[0] @ OPENGL @ rot))
+        ply_file = os.path.join(outdir, 'scene.ply')
+        o3d.io.write_point_cloud(ply_file, pcd)
+
+        # adding pct in scene geometry
         pct = trimesh.PointCloud(pts.reshape(-1, 3), colors=col.reshape(-1, 3))
         scene.add_geometry(pct)
     else:
@@ -87,27 +88,27 @@ def _convert_scene_output_to_glb(outdir, imgs, pts3d, mask, focals, cams2world, 
         mesh = trimesh.Trimesh(**cat_meshes(meshes))
         scene.add_geometry(mesh)
 
-    # add each camera
-    for i, pose_c2w in enumerate(cams2world):
-        if isinstance(cam_color, list):
-            camera_edge_color = cam_color[i]
-        else:
-            camera_edge_color = cam_color or CAM_COLORS[i % len(CAM_COLORS)]
-        add_scene_cam(scene, pose_c2w, camera_edge_color,
-                      None if transparent_cams else imgs[i], focals[i],
-                      imsize=imgs[i].shape[1::-1], screen_width=cam_size)
+    # # add each camera
+    # for i, pose_c2w in enumerate(cams2world):
+    #     if isinstance(cam_color, list):
+    #         camera_edge_color = cam_color[i]
+    #     else:
+    #         camera_edge_color = cam_color or CAM_COLORS[i % len(CAM_COLORS)]
+    #     add_scene_cam(scene, pose_c2w, camera_edge_color,
+    #                   None if transparent_cams else imgs[i], focals[i],
+    #                   imsize=imgs[i].shape[1::-1], screen_width=cam_size)
+    
+    # scene.apply_transform(np.linalg.inv(cams2world[0] @ OPENGL @ rot))
+    glb_file = os.path.join(outdir, 'scene.glb')
+    # if not silent:
+    #     print('(exporting 3D scene to', glb_file, ')')
+    
+    # # exporting trimesh mesh object
+    # scene.export(file_obj=glb_file)
+    return glb_file
 
-    rot = np.eye(4)
-    rot[:3, :3] = Rotation.from_euler('y', np.deg2rad(180)).as_matrix()
-    scene.apply_transform(np.linalg.inv(cams2world[0] @ OPENGL @ rot))
-    outfile = os.path.join(outdir, 'scene.glb')
-    if not silent:
-        print('(exporting 3D scene to', outfile, ')')
-    scene.export(file_obj=outfile)
-    return outfile
 
-
-def get_3D_model_from_scene(outdir, silent, scene, min_conf_thr=3, as_pointcloud=False, mask_sky=False,
+def get_3D_model_from_scene(outdir, silent, scene, min_conf_thr=1, as_pointcloud=False, mask_sky=False,
                             clean_depth=False, transparent_cams=False, cam_size=0.05):
     """
     extract 3D_model (glb file) from a reconstructed scene
@@ -135,7 +136,7 @@ def get_3D_model_from_scene(outdir, silent, scene, min_conf_thr=3, as_pointcloud
 def get_reconstructed_scene(outdir, model, device, silent, image_size, filelist, schedule, niter, min_conf_thr,
                             as_pointcloud, mask_sky, clean_depth, transparent_cams, cam_size,
                             scenegraph_type, winsize, refid):
-    """
+    """                          
     from a list of images, run dust3r inference, global aligner.
     then run get_3D_model_from_scene
     """

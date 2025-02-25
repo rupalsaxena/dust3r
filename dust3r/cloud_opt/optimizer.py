@@ -31,7 +31,7 @@ class PointCloudOptimizer(BasePCOptimizer):
         self.im_focals = nn.ParameterList(torch.FloatTensor(
             [self.focal_break*np.log(max(H, W))]) for H, W in self.imshapes)  # camera intrinsics
         self.im_pp = nn.ParameterList(torch.zeros((2,)) for _ in range(self.n_imgs))  # camera intrinsics
-        self.im_pp.requires_grad_(optimize_pp)
+        # self.im_pp.requires_grad_(optimize_pp)
 
         self.imshape = self.imshapes[0]
         im_areas = [h*w for h, w in self.imshapes]
@@ -135,7 +135,7 @@ class PointCloudOptimizer(BasePCOptimizer):
         param = self.im_pp[idx]
         H, W = self.imshapes[idx]
         if param.requires_grad or force:  # can only init a parameter not already initialized
-            param.data[:] = to_cpu(to_numpy(pp) - (W/2, H/2)) / 10
+            param.data[:] = to_cpu(to_numpy(pp) - np.array([W/2, H/2])) / 10
         return param
 
     def get_principal_points(self):

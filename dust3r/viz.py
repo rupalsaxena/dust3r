@@ -206,7 +206,8 @@ class SceneViz:
         return self
 
     def show(self, point_size=2):
-        self.scene.show(line_settings= {'point_size': point_size})
+        # self.scene.show(line_settings= {'point_size': point_size})
+        self.scene.export("combined_pcd.ply", file_type='ply')
 
 
 def show_raw_pointcloud_with_cams(imgs, pts3d, mask, focals, cams2world,
